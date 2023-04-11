@@ -1,42 +1,62 @@
+import java.util.Arrays;
+
 class Solution {
+
+    /*Метод, возвращающий минимально возможное значение максимального элемента
+    массива nums после выполнения некоторого количества операций*/
     public static int minimizeArrayValue(int[] nums) {
-        int n = nums.length;
-        int[] maxIdxs = new int[n];
-        int maxVal = nums[0];
-        int maxCnt = 0;
 
-        // find all indices of the maximum values
-        for (int i = 0; i < n; i++) {
-            if (nums[i] > maxVal) {
-                maxVal = nums[i];
-                maxCnt = 1;
-                maxIdxs[maxCnt - 1] = i;
-            } else if (nums[i] == maxVal) {
-                maxCnt++;
-                maxIdxs[maxCnt - 1] = i;
+        /*Нахожу начальное значение минимального и максимального элемента,
+        и устанавливаю результат равным первому элементу массива nums*/
+        int minValue = nums[0];
+        int maxValue = Arrays.stream(nums).max().orElse(nums[0]);
+        int result = nums[0];
+
+        /*Делаю бинарный поиск для определения минимально возможного значения
+        максимального элемента*/
+        while (minValue <= maxValue) {
+            // Вычисляю среднее значение, округляя вниз до целочисленного значения
+            long midValue = (minValue + maxValue) / 2;
+            /*Если значение среднего элемента подходит, то устанавливаем его в
+            качестве результата и продолжаю поиск с меньшими значениями*/
+            if (isNumberSuitable(nums, (int) midValue)) {
+                result = (int) midValue;
+                maxValue = (int) (midValue - 1);
+                /*Если значение среднего элемента не подходит, то продолжаю
+                поиск с большими значениями*/
+            } else {
+                minValue = (int) (midValue + 1);
             }
         }
+        // Возвращаю минимально возможное значение максимального элемента массива nums
+        return result;
+    }
 
-        // iterate through the maximum values, averaging values to the left of them
-        int minMaxVal = maxVal;
-        for (int i = 0; i < maxCnt; i++) {
-            int idx = maxIdxs[i];
-            int sum = nums[idx];
-            int cnt = 1;
-            for (int j = idx - 1; j >= 0; j--) {
-                sum += nums[j];
-                cnt++;
-                int avg = sum / cnt;
-                if (avg >= maxVal) {
-                    break;
-                }
-                minMaxVal = Math.min(minMaxVal, maxVal - 1);
-                if (minMaxVal == maxVal - 1) {
-                    break;
+    /*Метод, который проверяет, можно ли получить массив nums, применяя
+    описанные операции, для некоторого значения value*/
+    private static boolean isNumberSuitable(int[] nums, int value) {
+        /*debt - переменная, которая будет хранить суммарное количество
+        вычитаемых единиц в каждой операции*/
+        long debt = 0;
+        //Прохожу по всем элементам массива nums справа налево
+        for (int i = nums.length - 1; i >= 0; i--) {
+            /*Если текущий элемент больше значения value, то увеличиваю debt
+            на разницу между текущим элементом и значением value*/
+            if (nums[i] > value) {
+                debt += nums[i] - value;
+            }
+            /*Если текущий элемент меньше значения value и debt больше нуля, то
+            вычитаю минимум между debt и разницей между значением value и
+            текущим элементом*/
+            if (nums[i] < value && debt > 0) {
+                debt -= value - nums[i];
+                // Если debt становится отрицательным, то устанавливаю его равным нулю
+                if (debt < 0) {
+                    debt = 0;
                 }
             }
         }
-
-        return minMaxVal;
+        // Возвращаю true, если debt равен нулю, и false в противном случае
+        return debt == 0;
     }
 }
