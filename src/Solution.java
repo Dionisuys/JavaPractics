@@ -1,52 +1,133 @@
 import java.util.*;
 
 class Solution {
+    /*Массив, содержащий координаты соседей каждой клетки сетки: правый, левый,
+    нижний и верхний {{0, 1}, {0, -1}, {1, 0}, {-1, 0}} соответствует направлениям
+    вправо, влево, вниз и вверх соответственно.*/
     private static final int[][] DIRECTIONS = {{0, 1}, {0, -1}, {1, 0}, {-1, 0}};
 
+    /**
+     * Метод для поиска площади самого большого острова в сетке.
+     *
+     * @param grid сетка
+     * @return площадь самого большого острова
+     */
     public static int largestIsland(int[][] grid) {
+        // Получаем размер сетки
         int n = grid.length;
+        // Инициализируем переменную для хранения максимального размера острова
         int maxArea = 0;
-        BitMatrix visited = new BitMatrix(n * n);
-
-        // Рассмотрим каждую клетку сетки
+        /*Инициализируем массив размеров каждой связной компоненты. Каждый элемент
+        массива будет хранить размер связной компоненты, к которой относится ячейка*/
+        int[] sizes = new int[n * n + 1];
+        // Изначально все связные компоненты имеют размер 1
+        Arrays.fill(sizes, 1);
+        /*Инициализируем массив для хранения корней каждой связной компоненты.
+        Изначально каждая ячейка имеет свой собственный корень*/
+        int[] roots = new int[n * n + 1];
+        for (int i = 0; i < roots.length; i++) {
+            roots[i] = i;
+        }
+        // Обходим каждую клетку сетки
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+                // Если текущая клетка является частью острова, то обрабатываем ее
+                if (grid[i][j] == 1) {
+                    // Получаем индекс текущей клетки в массиве идентификаторов корней
+                    int index = i * n + j;
+                    // Обрабатываем клетки, смежные с текущей клеткой
+                    for (int[] direction : DIRECTIONS) {
+                        // Вычисляем координаты смежной клетки
+                        int dx = i + direction[0], dy = j + direction[1];
+                        /*Если смежная клетка является частью острова, то получаем
+                        ее индекс в массиве идентификаторов корней и объединяем
+                        корни текущей клетки и смежной клетки*/
+                        if (dx >= 0 && dx < n && dy >= 0 && dy < n && grid[dx][dy] == 1) {
+                            int newIndex = dx * n + dy;
+                            union(index, newIndex, roots, sizes);
+                        }
+                    }
+                }
+            }
+        }
+        // Обходим каждую клетку сетки, которая является водой
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
                 if (grid[i][j] == 0) {
-                    // Заменяем 0 на 1 и пересчитываем длину острова
-                    grid[i][j] = 1;
-                    int currArea = getIslandArea(grid, visited, i, j);
-                    maxArea = Math.max(maxArea, currArea);
-                    // Возвращаем 0 на место
-                    grid[i][j] = 0;
-                    visited.clear();
+                    int index = i * n + j;
+                    Set<Integer> set = new HashSet<>();
+                    // Обрабатываем клетки, смежные с текущей клеткой
+                    for (int[] direction : DIRECTIONS) {
+                        int dx = i + direction[0], dy = j + direction[1];
+                        // Проверяем, что клетка внутри сетки и не является водой
+                        if (dx >= 0 && dx < n && dy >= 0 && dy < n && grid[dx][dy] == 1) {
+                            // Находим корневую клетку, к которой относится текущая клетка
+                            int newIndex = dx * n + dy;
+                            int root = find(newIndex, roots);
+                            set.add(root);
+                        }
+                    }
+                    /*Вычисляем размер максимального острова, который можно
+                    объединить с текущей клеткой*/
+                    int area = 1;
+                    for (int root : set) {
+                        area += sizes[root];
+                    }
+                    maxArea = Math.max(maxArea, area);
                 }
             }
         }
-
-        // Если все клетки сетки уже были 1, то максимальный остров будет равен n*n
+        /*Возвращаем площадь максимального острова, если все клетки сетки уже
+        были 1, то максимальный остров будет равен n*n*/
         return maxArea == 0 ? n * n : maxArea;
     }
 
-    private static int getIslandArea(int[][] grid, BitMatrix visited, int i, int j) {
-        int n = grid.length;
-        Queue<int[]> queue = new LinkedList<>();
-        int index = i * n + j;
-        queue.offer(new int[] {i, j});
-        visited.set(index);
-        int area = 1;
-        while (!queue.isEmpty()) {
-            int[] curr = queue.poll();
-            int x = curr[0], y = curr[1];
-            for (int[] direction : DIRECTIONS) {
-                int dx = x + direction[0], dy = y + direction[1];
-                if (dx >= 0 && dx < n && dy >= 0 && dy < n
-                        && grid[dx][dy] == 1 && !visited.get(dx * n + dy)) {
-                    queue.offer(new int[] {dx, dy});
-                    visited.set(dx * n + dy);
-                    area++;
-                }
-            }
+    /**
+     * Находит корневой элемент множества, которому принадлежит элемент x.
+     * Используется метод сжатия пути для ускорения работы алгоритма.
+     *
+     * @param x     элемент множества, для которого нужно найти корневой элемент
+     * @param roots массив, где для каждого элемента хранится его корневой элемент
+     * @return корневой элемент множества, которому принадлежит элемент x
+     */
+    private static int find(int x, int[] roots) {
+        /*Итеративно находим корневой элемент, обновляя каждый пройденный элемент
+        до непосредственного корня*/
+        while (x != roots[x]) {
+            /*Сжатие пути: делаем каждый второй элемент в цепочке непосредственным
+            потомком корня*/
+            roots[x] = roots[roots[x]];
+            x = roots[x];
         }
-        return area;
+        return x;
+    }
+
+    /**
+     * Объединяет два подмножества в одно, используя алгоритм Union-Find.
+     *
+     * @param x     номер первого элемента для объединения
+     * @param y     номер второго элемента для объединения
+     * @param roots массив, содержащий корни для каждого элемента
+     * @param sizes массив, содержащий размер каждого подмножества
+     */
+    private static void union(int x, int y, int[] roots, int[] sizes) {
+        // Находим корни для каждого элемента
+        int rootX = find(x, roots);
+        int rootY = find(y, roots);
+        // Если корни разные, то объединяем подмножества
+        if (rootX != rootY) {
+            // Объединяем более мелкое подмножество с более крупным, чтобы уменьшить высоту дерева
+            if (sizes[rootX] < sizes[rootY]) {
+                int temp = rootX;
+                rootX = rootY;
+                rootY = temp;
+            }
+            /*Устанавливаем корень для более мелкого подмножества в корень для
+            более крупного подмножества*/
+            roots[rootY] = rootX;
+            /*Обновляем размер более крупного подмножества, добавляя к нему размер
+            более мелкого подмножества*/
+            sizes[rootX] += sizes[rootY];
+        }
     }
 }
